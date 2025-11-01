@@ -4,8 +4,8 @@ services:
     image: postgres:15-alpine
     container_name: signalstorm-postgres
     environment:
-      POSTGRES_DB: ${DB_NAME:-signalstorm}
-      POSTGRES_USER: ${DB_USER:-signalstorm}
+      POSTGRES_DB: ${DB_DATABASE:-signalstorm}
+      POSTGRES_USER: ${DB_USERNAME:-signalstorm}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-signalstormpassword}
     ports:
       - "5432:5432"
@@ -14,7 +14,7 @@ services:
     networks:
       - signalstorm
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U signalstorm"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-signalstorm}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -73,7 +73,8 @@ services:
     networks:
       - signalstorm
     command: >
-      sh -c "php artisan migrate --force &&
+      sh -c "php artisan config:clear &&
+             php artisan migrate --force &&
              php artisan storage:link &&
              php artisan config:cache"
 
@@ -98,8 +99,6 @@ services:
     command: >
       sh -c "echo 'Starting Laravel Queue Worker...' &&
                php artisan queue:listen --verbose --tries=3 --timeout=90"
-
-
 
   # Python ML Trainer Service
   python-trainer:
