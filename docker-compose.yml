@@ -1,0 +1,159 @@
+services:
+  # PostgresSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: signalstorm-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-signalstorm}
+      POSTGRES_USER: ${DB_USER:-signalstorm}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-signalstormpassword}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - signalstorm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signalstorm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: signalstorm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - signalstorm
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  # Laravel Application
+  laravel:
+    build:
+      context: .
+      dockerfile: docker/laravel.Dockerfile
+    image: signalstorm-laravel:dev
+    container_name: signalstorm-laravel
+    working_dir: /var/www
+    volumes:
+      - ./laravel:/var/www
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    networks:
+      - signalstorm
+  # One-time migration service
+  migrator:
+    image: signalstorm-laravel:dev
+    container_name: signalstorm-migrator
+    working_dir: /var/www
+    volumes:
+      - ./laravel:/var/www
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - signalstorm
+    command: >
+      sh -c "php artisan migrate --force &&
+             php artisan storage:link &&
+             php artisan config:cache"
+
+  # Laravel Queue Worker
+  laravel-worker:
+    image: signalstorm-laravel:dev
+    container_name: signalstorm-worker
+    working_dir: /var/www
+    volumes:
+      - ./laravel:/var/www
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    networks:
+      - signalstorm
+    command: >
+      sh -c "echo 'Starting Laravel Queue Worker...' &&
+               php artisan queue:listen --verbose --tries=3 --timeout=90"
+
+
+
+  # Python ML Trainer Service
+  python-trainer:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+    container_name: signalstorm-trainer
+    working_dir: /app
+    volumes:
+      - ./trainer:/app
+      - model_storage:/models
+    ports:
+      - "8001:8001"
+    environment:
+      - MODEL_STORAGE=disk
+      - MODEL_PATH=/models
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password123
+      - MINIO_BUCKET=models
+    networks:
+      - signalstorm
+    command: >
+      sh -c "pip install -r requirements.txt &&
+             uvicorn src.api.main:app --host 0.0.0.0 --port 8001 --reload"
+
+
+  #  # MinIO Object Storage (for ML models)
+  #  minio:
+  #    image: minio/minio:latest
+  #    container_name: signalstorm-minio
+  #    command: server /data --console-address ":9001"
+  #    environment:
+  #      MINIO_ROOT_USER: admin
+  #      MINIO_ROOT_PASSWORD: password123
+  #    ports:
+  #      - "9000:9000"
+  #      - "9001:9001"
+  #    volumes:
+  #      - minio_data:/data
+  #    networks:
+  #      - signalstorm
+  #    healthcheck:
+  #      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+  #      interval: 30s
+  #      timeout: 20s
+  #      retries: 3
+networks:
+  signalstorm:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  model_storage:
+

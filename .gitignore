@@ -1,0 +1,73 @@
+# Laravel
+/laravel/vendor/
+/laravel/node_modules/
+/laravel/.env
+/laravel/.env.backup
+/laravel/.env.production
+/laravel/.phpunit.result.cache
+/laravel/Homestead.json
+/laravel/Homestead.yaml
+/laravel/auth.json
+/laravel/npm-debug.log
+/laravel/yarn-error.log
+/laravel/storage/*.key
+/laravel/storage/app/*
+!/laravel/storage/app/.gitignore
+/laravel/storage/framework/cache/*
+!/laravel/storage/framework/cache/.gitignore
+/laravel/storage/framework/sessions/*
+!/laravel/storage/framework/sessions/.gitignore
+/laravel/storage/framework/testing/*
+!/laravel/storage/framework/testing/.gitignore
+/laravel/storage/framework/views/*
+!/laravel/storage/framework/views/.gitignore
+/laravel/storage/logs/*
+!/laravel/storage/logs/.gitignore
+/laravel/bootstrap/cache/*
+!/laravel/bootstrap/cache/.gitignore
+
+# Python
+/trainer/__pycache__/
+/trainer/**/__pycache__/
+/trainer/.pytest_cache/
+/trainer/**/.pytest_cache/
+/trainer/*.pyc
+/trainer/**/*.pyc
+/trainer/*.pyo
+/trainer/**/*.pyo
+/trainer/*.egg-info/
+/trainer/.venv/
+/trainer/venv/
+/trainer/env/
+/trainer/.env
+/trainer/.coverage
+/trainer/htmlcov/
+/trainer/dist/
+/trainer/build/
+/trainer/*.egg
+
+# Models
+/trainer/models/*
+!/trainer/models/.gitkeep
+
+# Docker
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Database
+*.sqlite
+*.sqlite3
+
+# OS
+Thumbs.db
+
