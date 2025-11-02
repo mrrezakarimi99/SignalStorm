@@ -21,8 +21,8 @@ mkdir -p trainer/models
 echo "✓ Created directories"
 
 # Start infrastructure
-echo "Starting PostgreSQL, Redis, MinIO..."
-docker compose up -d postgres redis minio
+echo "Starting PostgreSQL, Redis..."
+docker compose up -d postgres redis
 sleep 10
 echo "✓ Infrastructure started"
 
