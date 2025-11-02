@@ -56,6 +56,37 @@ class Kernel extends ConsoleKernel
                     ->runInBackground();
             }
         }
+
+        // Automated predictions (generate trading signals)
+        if (config('trading.automation.auto_predict', true)) {
+            $predictionSchedule = config('trading.prediction.schedule', 'every4hours');
+
+            if ($predictionSchedule === 'hourly') {
+                $schedule->command('predict:all')
+                    ->hourly()
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            } elseif ($predictionSchedule === 'every4hours') {
+                $schedule->command('predict:all')
+                    ->everyFourHours()
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            } elseif ($predictionSchedule === 'every6hours') {
+                $schedule->command('predict:all')
+                    ->everySixHours()
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            }
+        }
+
+        // Daily trading signals summary
+        if (config('trading.automation.daily_summary', true)) {
+            $summaryTime = config('trading.summary.schedule_time', '08:00');
+
+            $schedule->command('signal:daily-summary')
+                ->dailyAt($summaryTime)
+                ->runInBackground();
+        }
     }
 
     /**

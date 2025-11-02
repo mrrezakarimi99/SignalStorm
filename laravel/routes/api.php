@@ -8,6 +8,7 @@ use App\Models\Prediction;
 use App\Models\ModelMetric;
 use App\Jobs\FetchHistoricalDataJob;
 use App\Jobs\TrainModelJob;
+use App\Jobs\GeneratePredictionJob;
 
 Route::get('/health', function () {
     return response()->json([
@@ -87,6 +88,28 @@ Route::prefix('model')->group(function () {
 });
 
 Route::prefix('predictions')->group(function () {
+    // Generate new prediction
+    Route::post('/generate', function (Request $request) {
+        $request->validate([
+            'symbol' => 'required|string',
+            'interval' => 'required|string',
+            'model_version' => 'nullable|string',
+        ]);
+
+        GeneratePredictionJob::dispatch(
+            $request->input('symbol'),
+            $request->input('interval'),
+            $request->input('model_version')
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Prediction job queued',
+            'symbol' => $request->input('symbol'),
+            'interval' => $request->input('interval'),
+        ]);
+    });
+
     // Get latest predictions
     Route::get('/latest', function (Request $request) {
         $symbol = $request->query('symbol');
@@ -104,6 +127,26 @@ Route::prefix('predictions')->group(function () {
             'success' => true,
             'count' => $predictions->count(),
             'data' => $predictions,
+        ]);
+    });
+
+    // Get trading signals (only BUY/SELL with high confidence)
+    Route::get('/signals', function (Request $request) {
+        $minConfidence = $request->query('min_confidence', 70);
+
+        $signals = Prediction::whereIn('signal', ['BUY', 'SELL'])
+            ->where('confidence', '>=', $minConfidence)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->orderBy('confidence', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'count' => $signals->count(),
+            'min_confidence' => $minConfidence,
+            'data' => $signals,
         ]);
     });
 

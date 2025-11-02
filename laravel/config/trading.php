@@ -66,6 +66,44 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Prediction & Signal Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'prediction' => [
+        // Schedule for automatic predictions
+        // Options: hourly, every4hours, every6hours
+        'schedule' => env('PREDICTION_SCHEDULE', 'every4hours'),
+
+        // Minimum confidence to generate trading signal
+        'min_confidence' => env('MIN_SIGNAL_CONFIDENCE', 70),
+
+        // Minimum price change percentage to send notification
+        'min_price_change' => env('MIN_PRICE_CHANGE', 0.5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notification Settings
+    |--------------------------------------------------------------------------
+    */
+
+    'notifications' => [
+        // Send immediate notifications for strong signals
+        'instant_signals' => env('INSTANT_SIGNAL_NOTIFICATIONS', true),
+
+        // Minimum confidence for instant notifications
+        'instant_min_confidence' => env('INSTANT_NOTIFICATION_MIN_CONFIDENCE', 80),
+
+        // Send daily summary
+        'daily_summary' => env('DAILY_SUMMARY_ENABLED', true),
+
+        // Time for daily summary
+        'summary_time' => env('DAILY_SUMMARY_TIME', '08:00'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Automation Settings
     |--------------------------------------------------------------------------
     */
@@ -76,6 +114,12 @@ return [
 
         // Enable automated training
         'auto_train' => env('AUTO_TRAIN_MODEL', true),
+
+        // Enable automated predictions
+        'auto_predict' => env('AUTO_PREDICT', true),
+
+        // Enable daily summary
+        'daily_summary' => env('DAILY_SUMMARY_ENABLED', true),
 
         // Auto-train after data fetch (if enough new data)
         'train_after_fetch' => env('TRAIN_AFTER_FETCH', false),
