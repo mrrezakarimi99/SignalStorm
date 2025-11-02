@@ -63,17 +63,20 @@ class GeneratePredictionJob implements ShouldQueue
             }
 
             // Normalize the data
-            $normalized = $normalizer->normalize($candles->toArray());
+            $normalized = $normalizer->normalize($candles->all());
 
             if (empty($normalized)) {
                 Log::error("Failed to normalize candle data");
                 return;
             }
 
+            // Extract features array (DataNormalizer returns ['features' => [...], 'metadata' => [...]])
+            $features = $normalized['features'] ?? $normalized;
+
             // Call Python trainer service for prediction
             $trainerUrl = config('services.trainer.url', 'http://python-trainer:8001');
             $response = Http::timeout(60)->post("{$trainerUrl}/predict", [
-                'features' => $normalized,
+                'features' => $features,
                 'model_version' => $this->modelVersion,
             ]);
 
