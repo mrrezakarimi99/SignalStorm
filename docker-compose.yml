@@ -14,7 +14,7 @@ services:
     networks:
       - signalstorm
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-signalstorm}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-signalstorm} -d ${DB_DATABASE:-signalstorm}"]
       interval: 10s
       timeout: 5s
       retries: 5
