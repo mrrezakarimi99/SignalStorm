@@ -56,6 +56,9 @@ services:
       - .env
     networks:
       - signalstorm
+    command: >
+      sh -c "composer install --no-interaction --optimize-autoloader --no-dev &&
+             php artisan serve --host=0.0.0.0 --port=8000"
   # One-time migration service
   migrator:
     image: signalstorm-laravel:dev
@@ -73,7 +76,8 @@ services:
     networks:
       - signalstorm
     command: >
-      sh -c "php artisan config:clear &&
+      sh -c "composer install --no-interaction --optimize-autoloader --no-dev &&
+             php artisan config:clear &&
              php artisan migrate --force &&
              php artisan storage:link &&
              php artisan config:cache"
@@ -97,8 +101,9 @@ services:
     networks:
       - signalstorm
     command: >
-      sh -c "echo 'Starting Laravel Queue Worker...' &&
-               php artisan queue:listen --verbose --tries=3 --timeout=90"
+      sh -c "composer install --no-interaction --optimize-autoloader --no-dev &&
+             echo 'Starting Laravel Queue Worker...' &&
+             php artisan queue:listen --verbose --tries=3 --timeout=90"
 
   # Python ML Trainer Service
   python-trainer:
