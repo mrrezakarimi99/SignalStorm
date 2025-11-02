@@ -12,7 +12,50 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Automated data fetching
+        if (config('trading.automation.auto_fetch', true)) {
+            $fetchSchedule = config('trading.fetch.schedule', 'hourly');
+
+            if ($fetchSchedule === 'hourly') {
+                $schedule->command('data:fetch-all')
+                    ->hourly()
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            } elseif ($fetchSchedule === 'every30minutes') {
+                $schedule->command('data:fetch-all')
+                    ->everyThirtyMinutes()
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            } elseif ($fetchSchedule === 'every15minutes') {
+                $schedule->command('data:fetch-all')
+                    ->everyFifteenMinutes()
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            }
+        }
+
+        // Automated model training
+        if (config('trading.automation.auto_train', true)) {
+            $trainingSchedule = config('trading.training.schedule', 'daily');
+            $trainingTime = config('trading.training.schedule_time', '02:00');
+
+            if ($trainingSchedule === 'daily') {
+                $schedule->command('model:train-all')
+                    ->dailyAt($trainingTime)
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            } elseif ($trainingSchedule === 'weekly') {
+                $schedule->command('model:train-all')
+                    ->weeklyOn(1, $trainingTime) // Monday
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            } elseif ($trainingSchedule === 'twiceDaily') {
+                $schedule->command('model:train-all')
+                    ->twiceDaily(2, 14) // 02:00 AM and 02:00 PM
+                    ->withoutOverlapping()
+                    ->runInBackground();
+            }
+        }
     }
 
     /**

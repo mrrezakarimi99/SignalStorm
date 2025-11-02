@@ -103,7 +103,32 @@ services:
     command: >
       sh -c "composer install --no-interaction --optimize-autoloader --no-dev &&
              echo 'Starting Laravel Queue Worker...' &&
-             php artisan queue:listen --verbose --tries=3 --timeout=90"
+             php artisan queue:work --verbose --tries=3 --timeout=600 --sleep=3"
+    restart: unless-stopped
+
+  # Laravel Scheduler (for automated tasks)
+  laravel-scheduler:
+    image: signalstorm-laravel:dev
+    container_name: signalstorm-scheduler
+    working_dir: /var/www
+    volumes:
+      - ./laravel:/var/www
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    networks:
+      - signalstorm
+    command: >
+      sh -c "composer install --no-interaction --optimize-autoloader --no-dev &&
+             echo 'Starting Laravel Scheduler...' &&
+             php artisan schedule:work"
+    restart: unless-stopped
 
   # Python ML Trainer Service
   python-trainer:
