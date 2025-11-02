@@ -2,8 +2,10 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Http;
 use App\Models\Candle;
 use App\Models\Prediction;
+use App\Models\ModelMetric;
 use App\Jobs\FetchHistoricalDataJob;
 use App\Jobs\TrainModelJob;
 
@@ -118,6 +120,113 @@ Route::prefix('predictions')->group(function () {
             'count' => $predictions->count(),
             'data' => $predictions,
         ]);
+    });
+});
+
+Route::prefix('models')->group(function () {
+    // List all trained models
+    Route::get('/', function () {
+        try {
+            $trainerUrl = config('services.trainer.url', 'http://python-trainer:8001');
+            $response = Http::get("{$trainerUrl}/models");
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                // Enhance with database metrics if available
+                if (isset($data['details'])) {
+                    foreach ($data['details'] as &$model) {
+                        $metrics = ModelMetric::where('model_version', $model['model_version'])
+                            ->get()
+                            ->keyBy('metric_name');
+
+                        if ($metrics->isNotEmpty()) {
+                            $model['metrics'] = [
+                                'train_loss' => $metrics->get('train_loss')?->metric_value,
+                                'val_loss' => $metrics->get('val_loss')?->metric_value,
+                                'train_mae' => $metrics->get('train_mae')?->metric_value,
+                                'val_mae' => $metrics->get('val_mae')?->metric_value,
+                            ];
+                        }
+                    }
+                }
+
+                return response()->json($data);
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch models from trainer service'
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
+    // Get specific model info
+    Route::get('/{model_version}/info', function ($model_version) {
+        try {
+            $trainerUrl = config('services.trainer.url', 'http://python-trainer:8001');
+            $response = Http::get("{$trainerUrl}/models/{$model_version}/info");
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                // Add database metrics
+                $metrics = ModelMetric::where('model_version', $model_version)
+                    ->get()
+                    ->keyBy('metric_name');
+
+                if ($metrics->isNotEmpty()) {
+                    $data['metrics'] = [
+                        'train_loss' => $metrics->get('train_loss')?->metric_value,
+                        'val_loss' => $metrics->get('val_loss')?->metric_value,
+                        'train_mae' => $metrics->get('train_mae')?->metric_value,
+                        'val_mae' => $metrics->get('val_mae')?->metric_value,
+                    ];
+                    $data['trained_at'] = $metrics->first()?->created_at;
+                }
+
+                return response()->json($data);
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Model not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
+    // Download model file
+    Route::get('/{model_version}/download', function ($model_version) {
+        try {
+            $trainerUrl = config('services.trainer.url', 'http://python-trainer:8001');
+            $response = Http::get("{$trainerUrl}/models/{$model_version}/download");
+
+            if ($response->successful()) {
+                return response($response->body())
+                    ->header('Content-Type', 'application/octet-stream')
+                    ->header('Content-Disposition', "attachment; filename=\"{$model_version}.h5\"");
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Model not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
     });
 });
 
