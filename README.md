@@ -32,11 +32,19 @@ docker compose ps                  # All services
 ## 💻 Usage Examples
 ### Fetch Data
 ```bash
+# Fetch data for a specific pair
 docker compose exec laravel php artisan data:fetch BTCUSDT 1h 100
+
+# Fetch data for all configured pairs
+docker compose exec laravel php artisan data:fetch-all --limit=500
 ```
 ### Train Model
 ```bash
+# Train model for a specific pair
 docker compose exec laravel php artisan model:train BTCUSDT 1h --limit=1000 --epochs=50
+
+# Train models for all configured pairs
+docker compose exec laravel php artisan model:train-all --limit=1000 --epochs=100
 ```
 ### Get Predictions
 ```bash
@@ -127,7 +135,9 @@ docker compose exec laravel bash        # Shell
 **Laravel CLI:**
 ```bash
 docker compose exec laravel php artisan data:fetch BTCUSDT 1h 100
+docker compose exec laravel php artisan data:fetch-all --limit=500
 docker compose exec laravel php artisan model:train BTCUSDT 1h
+docker compose exec laravel php artisan model:train-all --epochs=100
 docker compose exec laravel php artisan tinker
 docker compose exec laravel php artisan test
 ```
