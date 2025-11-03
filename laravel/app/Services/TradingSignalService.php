@@ -31,7 +31,12 @@ class TradingSignalService
 
         $message = $this->formatSignalMessage($prediction);
 
-        return $this->telegramNotifier->send($message, []);
+        // Send trading signals to channel (public)
+        return $this->telegramNotifier->sendToChannel($message, [
+            'symbol' => $prediction->symbol,
+            'signal' => $prediction->signal,
+            'confidence' => $prediction->confidence,
+        ]);
     }
 
     /**
@@ -51,7 +56,7 @@ class TradingSignalService
             return false;
         }
 
-        if ($prediction->confidence < 90) {
+        if ($prediction->confidence < 70) {
             return false;
         }
 
@@ -206,7 +211,11 @@ class TradingSignalService
         }
 
         $message = $this->formatDailySummary($predictions);
-        return $this->telegramNotifier->send($message, []);
+        
+        // Send daily summary to channel (public)
+        return $this->telegramNotifier->sendToChannel($message, [
+            'total_signals' => $predictions->count(),
+        ]);
     }
 
     /**

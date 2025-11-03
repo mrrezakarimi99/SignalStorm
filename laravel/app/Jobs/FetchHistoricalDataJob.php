@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Contracts\IDataProvider;
 use App\Models\Candle;
 use App\Services\NotificationService;
+use App\Notifiers\TelegramNotifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -34,7 +35,11 @@ class FetchHistoricalDataJob implements ShouldQueue
     /**
      * Execute the job
      */
-    public function handle(IDataProvider $dataProvider, NotificationService $notificationService): void
+    public function handle(
+        IDataProvider $dataProvider, 
+        NotificationService $notificationService,
+        TelegramNotifier $telegramNotifier
+    ): void
     {
         Log::info('Fetching historical data', [
             'symbol' => $this->symbol,
@@ -86,10 +91,11 @@ class FetchHistoricalDataJob implements ShouldQueue
                 'count' => $stored,
             ]);
 
-            // Send notification
-            $notificationService->notify(
-                "Historical data fetched successfully",
+            // Send admin notification to private chat
+            $telegramNotifier->sendToPrivate(
+                "✅ Historical data fetched successfully",
                 [
+                    'job' => 'Fetch Historical Data',
                     'symbol' => $this->symbol,
                     'interval' => $this->interval,
                     'candles_stored' => $stored,
@@ -103,10 +109,13 @@ class FetchHistoricalDataJob implements ShouldQueue
                 'symbol' => $this->symbol,
             ]);
 
-            $notificationService->notify(
-                "Failed to fetch historical data",
+            // Send error alert to admin private chat
+            $telegramNotifier->sendToPrivate(
+                "❌ Failed to fetch historical data for {$this->symbol}",
                 [
+                    'job' => 'Fetch Historical Data',
                     'symbol' => $this->symbol,
+                    'interval' => $this->interval,
                     'error' => $e->getMessage(),
                 ]
             );

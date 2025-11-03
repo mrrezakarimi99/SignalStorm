@@ -7,6 +7,7 @@ use App\Contracts\INormalizer;
 use App\Models\Candle;
 use App\Models\ModelMetric;
 use App\Services\NotificationService;
+use App\Notifiers\TelegramNotifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,7 +41,8 @@ class TrainModelJob implements ShouldQueue
     public function handle(
         ITrainer $trainer,
         INormalizer $normalizer,
-        NotificationService $notificationService
+        NotificationService $notificationService,
+        TelegramNotifier $telegramNotifier
     ): void {
         Log::info('Starting model training', [
             'symbol' => $this->symbol,
@@ -62,9 +64,14 @@ class TrainModelJob implements ShouldQueue
                     'interval' => $this->interval,
                 ]);
 
-                $notificationService->notify(
-                    "Training failed: No data available",
-                    ['symbol' => $this->symbol, 'interval' => $this->interval]
+                // Send admin notification to private chat
+                $telegramNotifier->sendToPrivate(
+                    "⚠️ Training failed: No data available",
+                    [
+                        'job' => 'Train Model',
+                        'symbol' => $this->symbol, 
+                        'interval' => $this->interval
+                    ]
                 );
                 return;
             }
@@ -119,10 +126,11 @@ class TrainModelJob implements ShouldQueue
                 'metrics' => $result['metrics'] ?? [],
             ]);
 
-            // Send success notification
-            $notificationService->notify(
-                "Model training completed successfully! 🎉",
+            // Send success notification to admin private chat
+            $telegramNotifier->sendToPrivate(
+                "✅ Model training completed successfully!",
                 [
+                    'job' => 'Train Model',
                     'symbol' => $this->symbol,
                     'interval' => $this->interval,
                     'model_version' => $result['model_version'],
@@ -136,9 +144,11 @@ class TrainModelJob implements ShouldQueue
                 'symbol' => $this->symbol,
             ]);
 
-            $notificationService->notify(
-                "Model training failed ❌",
+            // Send error notification to admin private chat
+            $telegramNotifier->sendToPrivate(
+                "❌ Model training failed",
                 [
+                    'job' => 'Train Model',
                     'symbol' => $this->symbol,
                     'interval' => $this->interval,
                     'error' => $e->getMessage(),

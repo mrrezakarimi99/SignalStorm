@@ -52,7 +52,8 @@ return [
     // Telegram Bot
     'telegram' => [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
-        'chat_id' => env('TELEGRAM_CHAT_ID'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'), // For admin notifications (PV)
+        'channel_id' => env('TELEGRAM_CHANNEL_ID'), // For trading signals
     ],
 
     // Python Trainer Service
