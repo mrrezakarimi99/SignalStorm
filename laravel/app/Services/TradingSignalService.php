@@ -39,12 +39,19 @@ class TradingSignalService
      */
     protected function shouldNotify(Prediction $prediction): bool
     {
-        // Only notify for BUY/SELL signals with high confidence
+        // Always notify for unrealistic predictions (HOLD signals with metadata indicating unrealistic)
+        if ($prediction->signal === 'HOLD' && 
+            isset($prediction->metadata['unrealistic']) && 
+            $prediction->metadata['unrealistic'] === true) {
+            return true; // Send "Review needed" alert
+        }
+
+        // Only notify for BUY/SELL signals with very high confidence (90%+)
         if (!in_array($prediction->signal, ['BUY', 'SELL'])) {
             return false;
         }
 
-        if ($prediction->confidence < 70) {
+        if ($prediction->confidence < 90) {
             return false;
         }
 
@@ -56,8 +63,15 @@ class TradingSignalService
      */
     protected function formatSignalMessage(Prediction $prediction): string
     {
+        // Check if this is an unrealistic prediction requiring review
+        $isUnrealistic = isset($prediction->metadata['unrealistic']) && $prediction->metadata['unrealistic'] === true;
+        
+        if ($isUnrealistic) {
+            return $this->formatUnrealisticPredictionMessage($prediction);
+        }
+
         $emoji = $this->getSignalEmoji($prediction->signal);
-        $priceEmoji = $prediction->price_change_percent > 0 ? '📈' : '📉';
+        $priceEmoji = (float) $prediction->price_change_percent > 0 ? '📈' : '📉';
 
         $message = "<b>{$emoji} TRADING SIGNAL {$emoji}</b>\n\n";
 
@@ -72,10 +86,10 @@ class TradingSignalService
         $message .= "<b>📊 Price Analysis:</b>\n";
         $message .= "• Current: <code>\${$prediction->current_price}</code>\n";
         $message .= "• Predicted: <code>\${$prediction->predicted_price}</code>\n";
-        $message .= "• Change: <code>{$priceEmoji} " . number_format($prediction->price_change_percent, 2) . "%</code>\n\n";
+        $message .= "• Change: <code>{$priceEmoji} " . number_format((float) $prediction->price_change_percent, 2) . "%</code>\n\n";
 
         // Confidence
-        $confidenceBar = $this->getConfidenceBar($prediction->confidence);
+        $confidenceBar = $this->getConfidenceBar((float) $prediction->confidence);
         $message .= "<b>🎲 Confidence:</b> <code>{$prediction->confidence}%</code> {$confidenceBar}\n\n";
 
         // Model info
@@ -87,6 +101,36 @@ class TradingSignalService
         // Disclaimer
         $message .= "\n\n<i>⚠️ This is an AI-generated signal. Always do your own research and manage risk properly.</i>";
 
+        return $message;
+    }
+
+    /**
+     * Format message for unrealistic predictions requiring manual review
+     */
+    protected function formatUnrealisticPredictionMessage(Prediction $prediction): string
+    {
+        $message = "<b>⚠️ SIGNAL REQUIRES REVIEW ⚠️</b>\n\n";
+        
+        $message .= "<b>🎯 Status:</b> <code>MANUAL REVIEW NEEDED</code>\n";
+        $message .= "<b>💰 Symbol:</b> <code>{$prediction->symbol}</code>\n";
+        $message .= "<b>⏰ Timeframe:</b> <code>{$prediction->interval}</code>\n\n";
+        
+        $message .= "<b>🚨 Issue Detected:</b>\n";
+        $message .= "• ML model produced unrealistic prediction\n";
+        $message .= "• Raw prediction exceeded safety thresholds\n";
+        $message .= "• Automatic signal generation suspended\n\n";
+        
+        $message .= "<b>📊 Current Price:</b> <code>\${$prediction->current_price}</code>\n";
+        $message .= "<b>🤖 Model:</b> <code>{$prediction->model_version}</code>\n\n";
+        
+        $message .= "<b>💡 Recommended Actions:</b>\n";
+        $message .= "• Manual chart analysis required\n";
+        $message .= "• Check for market events or news\n";
+        $message .= "• Consider model retraining\n";
+        $message .= "• Do not place trades based on this signal\n\n";
+        
+        $message .= "<i>🛡️ This alert was triggered by SignalStorm's safety system to protect against unrealistic predictions.</i>";
+        
         return $message;
     }
 
