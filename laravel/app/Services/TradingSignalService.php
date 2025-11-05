@@ -56,7 +56,7 @@ class TradingSignalService
             return false;
         }
 
-        if ($prediction->confidence < 90) {
+        if ($prediction->confidence < 80) {
             return false;
         }
 
