@@ -22,14 +22,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: signalstorm-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - signalstorm
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-Rd!sS3cr3tP@ss}", "--protected-mode", "yes"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-Rd!sS3cr3tP@ss} ping || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
