@@ -114,10 +114,17 @@ class ValidatePredictionsCommand extends Command
                 $actualPrice = $candle->close;
                 $actualChangePercent = (($actualPrice - $prediction->current_price) / $prediction->current_price) * 100;
 
-                // Calculate accuracy (how close the prediction was)
-                $predictedChange = $prediction->price_change_percent;
-                $accuracy = 100 - abs($predictedChange - $actualChangePercent);
-                $accuracy = max(0, min(100, $accuracy)); // Clamp between 0 and 100
+                // Calculate accuracy based on actual price error (more realistic for trading)
+                $priceError = abs($prediction->predicted_price - $actualPrice);
+                $priceErrorPercent = ($priceError / $prediction->current_price) * 100;
+                $accuracy = max(0, 100 - ($priceErrorPercent * 10)); // Scale the error appropriately
+
+                // Alternative: If price error is within 2%, give high accuracy
+                if ($priceErrorPercent <= 2) {
+                    $accuracy = 100 - ($priceErrorPercent * 10);
+                } else {
+                    $accuracy = max(0, 100 - ($priceErrorPercent * 5));
+                }
 
                 $prediction->update([
                     'actual_price' => $actualPrice,
@@ -153,6 +160,11 @@ class ValidatePredictionsCommand extends Command
         $avgConfidence = $predictions->avg('confidence');
         $avgAccuracy = $verified->avg('accuracy');
 
+        // Calculate average price error
+        $avgPriceError = $verified->map(function ($prediction) {
+            return abs($prediction->predicted_price - $prediction->actual_price);
+        })->avg();
+
         $correctDirections = $verified->filter(function ($prediction) {
             $predictedDirection = $prediction->price_change_percent > 0 ? 'up' : 'down';
             $actualDirection = $prediction->actual_change_percent > 0 ? 'up' : 'down';
@@ -167,6 +179,7 @@ class ValidatePredictionsCommand extends Command
                 ['Total Predictions', $totalCount],
                 ['Verified Predictions', "{$verifiedCount} (" . number_format($verificationRate, 2) . "%)"],
                 ['Average Confidence', number_format($avgConfidence, 2) . '%'],
+                ['Average Price Error', $avgPriceError ? number_format($avgPriceError, 4) : 'N/A'],
                 ['Average Accuracy', $avgAccuracy ? number_format($avgAccuracy, 2) . '%' : 'N/A'],
                 ['Direction Accuracy', number_format($directionAccuracy, 2) . '%'],
                 ['Correct Directions', "{$correctDirections} / {$verifiedCount}"],
@@ -286,10 +299,15 @@ class ValidatePredictionsCommand extends Command
             $accuracy = $prediction->accuracy !== null ? number_format($prediction->accuracy, 1) . '%' : 'N/A';
 
             $directionCorrect = '';
+            $priceError = 'N/A';
             if ($prediction->actual_price !== null) {
                 $predictedDirection = $prediction->price_change_percent > 0 ? '↑' : '↓';
                 $actualDirection = $prediction->actual_change_percent > 0 ? '↑' : '↓';
                 $directionCorrect = $predictedDirection === $actualDirection ? '✓' : '✗';
+
+                // Calculate price error
+                $error = abs($prediction->predicted_price - $prediction->actual_price);
+                $priceError = number_format($error, 2);
             }
 
             $data[] = [
@@ -301,13 +319,14 @@ class ValidatePredictionsCommand extends Command
                 number_format($prediction->price_change_percent, 2) . '%',
                 $prediction->actual_change_percent !== null ? number_format($prediction->actual_change_percent, 2) . '%' : 'N/A',
                 $directionCorrect,
+                $priceError,
                 $accuracy,
                 $prediction->created_at->format('Y-m-d H:i'),
             ];
         }
 
         $this->table(
-            ['✓', 'Symbol', 'Interval', 'Signal', 'Confidence', 'Predicted Δ', 'Actual Δ', 'Dir', 'Accuracy', 'Created'],
+            ['✓', 'Symbol', 'Interval', 'Signal', 'Conf%', 'Pred Δ', 'Act Δ', 'Dir', 'Error', 'Acc%', 'Created'],
             $data
         );
 
