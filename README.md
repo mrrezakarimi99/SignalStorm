@@ -15,12 +15,12 @@
 
 A production-ready, **fully automated** crypto trading signal platform that:
 
-✅ **Fetches** live market data from Binance API  
-✅ **Trains** LSTM neural network models for price prediction  
-✅ **Generates** BUY/SELL/HOLD signals with confidence scores  
-✅ **Sends** beautiful Telegram notifications automatically  
-✅ **Stores** all predictions and model metrics  
-✅ **Schedules** everything - data fetching, training, predictions  
+✅ **Fetches** live market data from Binance API
+✅ **Trains** LSTM neural network models for price prediction
+✅ **Generates** BUY/SELL/HOLD signals with confidence scores
+✅ **Sends** beautiful Telegram notifications automatically
+✅ **Stores** all predictions and model metrics
+✅ **Schedules** everything - data fetching, training, predictions
 ✅ **Manages** model files with download API
 
 ### 🎯 Perfect For:
@@ -42,7 +42,7 @@ cd SignalStorm
 
 **Setup automatically:**
 - ✅ Starts PostgreSQL, Redis
-- ✅ Builds Laravel + Python containers  
+- ✅ Builds Laravel + Python containers
 - ✅ Installs all dependencies
 - ✅ Runs database migrations
 - ✅ Starts all 6 services

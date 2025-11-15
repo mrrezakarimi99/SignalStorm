@@ -76,6 +76,51 @@ if (config('trading.automation.auto_predict', true)) {
     }
 }
 
+// Batch signal notifications (send predictions grouped together)
+// This prevents notification spam by sending all predictions in one message
+if (config('trading.notifications.batch_enabled', true)) {
+    $batchInterval = config('trading.notifications.batch_interval', 15);
+
+    // Send batch notifications every 15 minutes (or configured interval)
+    Schedule::command('signal:send-batch', ['--minutes' => $batchInterval])
+        ->everyFifteenMinutes()
+        ->withoutOverlapping()
+        ->runInBackground();
+}
+
+// Automatic prediction validation
+// Validates predictions against actual prices and updates accuracy
+if (config('trading.validation.auto_validate', true)) {
+    $validationSchedule = config('trading.validation.schedule', 'hourly');
+    $validationDays = config('trading.validation.days', 7);
+
+    if ($validationSchedule === 'hourly') {
+        Schedule::command('predict:validate', [
+            '--update' => true,
+            '--days' => $validationDays,
+        ])
+            ->hourly()
+            ->withoutOverlapping()
+            ->runInBackground();
+    } elseif ($validationSchedule === 'every4hours') {
+        Schedule::command('predict:validate', [
+            '--update' => true,
+            '--days' => $validationDays,
+        ])
+            ->everyFourHours()
+            ->withoutOverlapping()
+            ->runInBackground();
+    } elseif ($validationSchedule === 'daily') {
+        Schedule::command('predict:validate', [
+            '--update' => true,
+            '--days' => $validationDays,
+        ])
+            ->dailyAt('03:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+    }
+}
+
 // Daily trading signals summary
 if (config('trading.automation.daily_summary', true)) {
     $summaryTime = config('trading.summary.schedule_time', '08:00');

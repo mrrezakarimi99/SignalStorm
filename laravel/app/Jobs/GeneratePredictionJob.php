@@ -201,8 +201,9 @@ class GeneratePredictionJob implements ShouldQueue
 
             Log::info("Prediction generated for {$this->symbol} {$this->interval}: {$signal} ({$confidence}% confidence)");
 
-            // Send Telegram notification via TradingSignalService
-            $signalService->sendSignal($prediction);
+            // Don't send individual notifications - they will be batched
+            // The batch sending is handled by a separate scheduled job
+            // $signalService->sendSignal($prediction);
 
         } catch (\Exception $e) {
             Log::error("Error generating prediction: {$e->getMessage()}");

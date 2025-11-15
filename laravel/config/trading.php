@@ -90,16 +90,42 @@ return [
 
     'notifications' => [
         // Send immediate notifications for strong signals
-        'instant_signals' => env('INSTANT_SIGNAL_NOTIFICATIONS', true),
+        'instant_signals' => env('INSTANT_SIGNAL_NOTIFICATIONS', false), // Disabled in favor of batch
 
         // Minimum confidence for instant notifications
         'instant_min_confidence' => env('INSTANT_NOTIFICATION_MIN_CONFIDENCE', 80),
+
+        // Enable batch notifications (groups predictions to prevent spam)
+        'batch_enabled' => env('BATCH_NOTIFICATIONS_ENABLED', true),
+
+        // Batch interval in minutes (how often to send batch notifications)
+        'batch_interval' => env('BATCH_NOTIFICATION_INTERVAL', 15),
 
         // Send daily summary
         'daily_summary' => env('DAILY_SUMMARY_ENABLED', true),
 
         // Time for daily summary
         'summary_time' => env('DAILY_SUMMARY_TIME', '08:00'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validation Settings
+    |--------------------------------------------------------------------------
+    */
+
+    'validation' => [
+        // Enable automatic validation of predictions
+        'auto_validate' => env('AUTO_VALIDATE_PREDICTIONS', true),
+
+        // Validation schedule: hourly, every4hours, daily
+        'schedule' => env('VALIDATION_SCHEDULE', 'hourly'),
+
+        // How many days back to validate
+        'days' => env('VALIDATION_DAYS', 7),
+
+        // Minimum confidence to include in validation
+        'min_confidence' => env('VALIDATION_MIN_CONFIDENCE', 0),
     ],
 
     /*

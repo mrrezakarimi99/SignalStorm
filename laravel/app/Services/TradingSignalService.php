@@ -89,8 +89,8 @@ class TradingSignalService
 
         // Price information
         $message .= "<b>📊 Price Analysis:</b>\n";
-        $message .= "• Current: <code>\${$prediction->current_price}</code>\n";
-        $message .= "• Predicted: <code>\${$prediction->predicted_price}</code>\n";
+        $message .= "• Current: <code>$" . $prediction->current_price . "</code>\n";
+        $message .= "• Predicted: <code>$" . $prediction->predicted_price . "</code>\n";
         $message .= "• Change: <code>{$priceEmoji} " . number_format((float) $prediction->price_change_percent, 2) . "%</code>\n\n";
 
         // Confidence
@@ -125,7 +125,7 @@ class TradingSignalService
         $message .= "• Raw prediction exceeded safety thresholds\n";
         $message .= "• Automatic signal generation suspended\n\n";
         
-        $message .= "<b>📊 Current Price:</b> <code>\${$prediction->current_price}</code>\n";
+        $message .= "<b>📊 Current Price:</b> <code>$" . $prediction->current_price . "</code>\n";
         $message .= "<b>🤖 Model:</b> <code>{$prediction->model_version}</code>\n\n";
         
         $message .= "<b>💡 Recommended Actions:</b>\n";
@@ -219,28 +219,100 @@ class TradingSignalService
     }
 
     /**
+     * Send batch of recent predictions in one message
+     * This prevents notification spam by grouping predictions
+     */
+    public function sendBatchSignals(?int $minutes = null): bool
+    {
+        $minutes = $minutes ?? config('trading.notifications.batch_interval', 15);
+
+        // Get recent predictions that haven't been notified yet
+        $predictions = Prediction::whereIn('signal', ['BUY', 'SELL'])
+            ->where('confidence', '>=', config('trading.notifications.instant_min_confidence', 80))
+            ->where('created_at', '>=', now()->subMinutes($minutes))
+            ->orderBy('confidence', 'desc')
+            ->get();
+
+        if ($predictions->isEmpty()) {
+            Log::info("No new predictions to send in batch notification");
+            return false;
+        }
+
+        Log::info("Sending batch notification for {$predictions->count()} predictions");
+
+        $message = $this->formatBatchSignalMessage($predictions, $minutes);
+
+        // Send batch to channel
+        return $this->telegramNotifier->sendToChannel($message, [
+            'batch_count' => $predictions->count(),
+        ]);
+    }
+
+    /**
+     * Format batch signal message with lowercase text
+     */
+    protected function formatBatchSignalMessage($predictions, int $minutes): string
+    {
+        $buyCount = $predictions->where('signal', 'BUY')->count();
+        $sellCount = $predictions->where('signal', 'SELL')->count();
+
+        $message = "<b>🔔 trading signals ({$minutes}min)</b>\n\n";
+
+        $message .= "<b>📊 summary:</b>\n";
+        $message .= "• total: {$predictions->count()} signals\n";
+        $message .= "• buy: {$buyCount} | sell: {$sellCount}\n\n";
+
+        $message .= "<b>🎯 signals:</b>\n\n";
+
+        foreach ($predictions as $index => $prediction) {
+            $emoji = $this->getSignalEmoji($prediction->signal);
+            $priceEmoji = (float) $prediction->price_change_percent > 0 ? '📈' : '📉';
+
+            $signal = strtolower($prediction->signal);
+            $symbol = strtolower($prediction->symbol);
+            $interval = strtolower($prediction->interval);
+
+            $message .= "{$emoji} <b>{$signal}</b> {$symbol} ({$interval})\n";
+            $message .= "• price: $" . $prediction->current_price . " → $" . $prediction->predicted_price . "\n";
+            $message .= "• change: {$priceEmoji} " . number_format((float) $prediction->price_change_percent, 2) . "%\n";
+            $message .= "• confidence: {$prediction->confidence}% ";
+            $message .= $this->getConfidenceBar((float) $prediction->confidence) . "\n";
+
+            if ($index < $predictions->count() - 1) {
+                $message .= "\n";
+            }
+        }
+
+        $message .= "\n<i>⚠️ ai-generated signals. dyor & manage risk.</i>";
+
+        return $message;
+    }
+
+    /**
      * Format daily summary message
      */
     protected function formatDailySummary($predictions): string
     {
-        $message = "<b>📊 Daily Trading Signals Summary</b>\n";
+        $message = "<b>📊 daily trading signals summary</b>\n";
         $message .= "<i>" . now()->format('F d, Y') . "</i>\n\n";
 
         $buyCount = $predictions->where('signal', 'BUY')->count();
         $sellCount = $predictions->where('signal', 'SELL')->count();
 
-        $message .= "<b>📈 Total Signals:</b> {$predictions->count()}\n";
-        $message .= "• Buy: {$buyCount}\n";
-        $message .= "• Sell: {$sellCount}\n\n";
+        $message .= "<b>📈 total signals:</b> {$predictions->count()}\n";
+        $message .= "• buy: {$buyCount}\n";
+        $message .= "• sell: {$sellCount}\n\n";
 
-        $message .= "<b>🔝 Top Signals:</b>\n\n";
+        $message .= "<b>🔝 top signals:</b>\n\n";
 
         foreach ($predictions->take(5) as $index => $prediction) {
             $emoji = $this->getSignalEmoji($prediction->signal);
-            $message .= ($index + 1) . ". {$emoji} <b>{$prediction->symbol}</b> ({$prediction->interval})\n";
-            $message .= "   Signal: <code>{$prediction->signal}</code> | ";
-            $message .= "Confidence: <code>{$prediction->confidence}%</code>\n";
-            $message .= "   Change: <code>" . number_format($prediction->price_change_percent, 2) . "%</code>\n\n";
+            $symbol = strtolower($prediction->symbol);
+            $signal = strtolower($prediction->signal);
+            $message .= ($index + 1) . ". {$emoji} <b>{$symbol}</b> ({$prediction->interval})\n";
+            $message .= "   signal: <code>{$signal}</code> | ";
+            $message .= "confidence: <code>{$prediction->confidence}%</code>\n";
+            $message .= "   change: <code>" . number_format($prediction->price_change_percent, 2) . "%</code>\n\n";
         }
 
         return $message;
