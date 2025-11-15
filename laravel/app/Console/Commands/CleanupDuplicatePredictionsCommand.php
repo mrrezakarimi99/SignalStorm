@@ -29,8 +29,8 @@ class CleanupDuplicatePredictionsCommand extends Command
             ->select('symbol', 'interval', DB::raw("TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI') as time_group"))
             ->selectRaw('COUNT(*) as count')
             ->where('created_at', '>=', now()->subDays($days))
-            ->groupBy('symbol', 'interval', 'time_group')
-            ->having('count', '>', 1)
+            ->groupBy('symbol', 'interval', DB::raw("TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI')"))
+            ->havingRaw('COUNT(*) > 1')
             ->get();
 
         if ($duplicates->isEmpty()) {
