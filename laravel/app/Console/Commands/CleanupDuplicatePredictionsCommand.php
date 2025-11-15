@@ -26,7 +26,7 @@ class CleanupDuplicatePredictionsCommand extends Command
 
         // Find duplicates: multiple predictions with same symbol+interval created within 5 minutes
         $duplicates = DB::table('predictions')
-            ->select('symbol', 'interval', DB::raw('DATE_FORMAT(created_at, "%Y-%m-%d %H:%i") as time_group'))
+            ->select('symbol', 'interval', DB::raw("TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI') as time_group"))
             ->selectRaw('COUNT(*) as count')
             ->where('created_at', '>=', now()->subDays($days))
             ->groupBy('symbol', 'interval', 'time_group')
