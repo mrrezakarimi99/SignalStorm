@@ -137,6 +137,18 @@ class GeneratePredictionJob implements ShouldQueue
             // Calculate price change percentage
             $priceChange = (($predictedPrice - $currentPrice) / $currentPrice) * 100;
 
+            // Delete any recent predictions (last 5 minutes) for this symbol+interval+model
+            // This prevents duplicates when the job is retried or runs multiple times
+            $deletedCount = Prediction::where('symbol', $this->symbol)
+                ->where('interval', $this->interval)
+                ->where('model_version', $this->modelVersion)
+                ->where('created_at', '>=', now()->subMinutes(5))
+                ->delete();
+
+            if ($deletedCount > 0) {
+                Log::info("Deleted {$deletedCount} recent duplicate prediction(s) for {$this->symbol} {$this->interval}");
+            }
+
             // Debug logging
             Log::info("Prediction debugging", [
                 'symbol' => $this->symbol,

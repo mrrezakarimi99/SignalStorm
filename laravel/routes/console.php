@@ -81,11 +81,23 @@ if (config('trading.automation.auto_predict', true)) {
 if (config('trading.notifications.batch_enabled', true)) {
     $batchInterval = config('trading.notifications.batch_interval', 15);
 
-    // Send batch notifications every 15 minutes (or configured interval)
-    Schedule::command('signal:send-batch', ['--minutes' => $batchInterval])
-        ->everyFifteenMinutes()
+    // Send batch notifications based on configured interval
+    $schedule = Schedule::command('signal:send-batch', ['--minutes' => $batchInterval])
         ->withoutOverlapping()
         ->runInBackground();
+
+    // Apply the appropriate schedule based on interval
+    if ($batchInterval <= 5) {
+        $schedule->everyFiveMinutes();
+    } elseif ($batchInterval <= 10) {
+        $schedule->everyTenMinutes();
+    } elseif ($batchInterval <= 15) {
+        $schedule->everyFifteenMinutes();
+    } elseif ($batchInterval <= 30) {
+        $schedule->everyThirtyMinutes();
+    } else {
+        $schedule->hourly();
+    }
 }
 
 // Automatic prediction validation

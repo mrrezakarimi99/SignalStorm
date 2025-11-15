@@ -34,16 +34,19 @@ class GenerateAllPredictionsCommand extends Command
 
         $queued = 0;
 
+        // Group models by symbol+interval and get only the latest version
+        $latestModels = [];
         foreach ($models as $modelVersion) {
             // Parse model version: lstm_SYMBOL_INTERVAL_TIMESTAMP
             $parts = explode('_', $modelVersion);
 
-            if (count($parts) < 3) {
+            if (count($parts) < 4) {
                 continue;
             }
 
             $symbol = $parts[1];
             $interval = $parts[2];
+            $timestamp = $parts[3];
 
             // Filter by symbols if specified
             if (!empty($symbols) && !in_array($symbol, $symbols)) {
@@ -55,12 +58,27 @@ class GenerateAllPredictionsCommand extends Command
                 continue;
             }
 
-            $this->line("Queuing prediction for {$symbol} {$interval}...");
-            GeneratePredictionJob::dispatch($symbol, $interval, $modelVersion);
+            $key = "{$symbol}_{$interval}";
+
+            // Keep only the latest model version (highest timestamp) per symbol+interval
+            if (!isset($latestModels[$key]) || $timestamp > $latestModels[$key]['timestamp']) {
+                $latestModels[$key] = [
+                    'version' => $modelVersion,
+                    'timestamp' => $timestamp,
+                    'symbol' => $symbol,
+                    'interval' => $interval,
+                ];
+            }
+        }
+
+        // Dispatch jobs only for latest models
+        foreach ($latestModels as $model) {
+            $this->line("Queuing prediction for {$model['symbol']} {$model['interval']} using latest model {$model['version']}");
+            GeneratePredictionJob::dispatch($model['symbol'], $model['interval'], $model['version']);
             $queued++;
         }
 
-        $this->info("✓ Queued {$queued} prediction jobs");
+        $this->info("✓ Queued {$queued} prediction jobs (using latest models only)");
 
         return self::SUCCESS;
     }

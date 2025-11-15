@@ -228,22 +228,40 @@ class TradingSignalService
         $maxPerMessage = config('trading.notifications.batch_max_per_message', 5);
 
         // Get recent predictions that haven't been notified yet
-        $predictions = Prediction::whereIn('signal', ['BUY', 'SELL'])
+        $allPredictions = Prediction::whereIn('signal', ['BUY', 'SELL'])
             ->where('confidence', '>=', config('trading.notifications.instant_min_confidence', 80))
             ->where('created_at', '>=', now()->subMinutes($minutes))
+            ->whereNull('notified_at') // Only get predictions that haven't been sent
             ->orderBy('confidence', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get();
 
-        if ($predictions->isEmpty()) {
+        if ($allPredictions->isEmpty()) {
             Log::info("No new predictions to send in batch notification");
             return false;
         }
 
-        Log::info("Sending batch notification for {$predictions->count()} predictions");
+        // Remove duplicates - keep only the latest prediction per symbol+interval
+        $predictions = $allPredictions->groupBy(function($prediction) {
+            return $prediction->symbol . '_' . $prediction->interval;
+        })->map(function($group) {
+            // Return the prediction with highest confidence, or most recent if tied
+            return $group->sortByDesc('confidence')
+                        ->sortByDesc('created_at')
+                        ->first();
+        })->values();
+
+        if ($predictions->isEmpty()) {
+            Log::info("No unique predictions to send after deduplication");
+            return false;
+        }
+
+        Log::info("Sending batch notification for {$predictions->count()} unique predictions (filtered from {$allPredictions->count()})");
 
         // Split predictions into chunks to avoid Telegram's 4096 character limit
         $chunks = $predictions->chunk($maxPerMessage);
         $success = true;
+        $sentPredictionIds = [];
 
         foreach ($chunks as $index => $chunk) {
             $message = $this->formatBatchSignalMessage($chunk, $minutes, $index + 1, $chunks->count());
@@ -255,14 +273,26 @@ class TradingSignalService
                 'total_parts' => $chunks->count(),
             ]);
 
-            if (!$result) {
+            if ($result) {
+                // Mark these predictions as notified
+                $chunkIds = $chunk->pluck('id')->toArray();
+                $sentPredictionIds = array_merge($sentPredictionIds, $chunkIds);
+            } else {
                 $success = false;
+                Log::error("Failed to send batch notification part " . ($index + 1) . "/" . $chunks->count());
             }
 
             // Small delay between messages to avoid rate limiting
             if ($chunks->count() > 1 && $index < $chunks->count() - 1) {
                 usleep(500000); // 0.5 second delay
             }
+        }
+
+        // Mark all sent predictions as notified
+        if (!empty($sentPredictionIds)) {
+            Prediction::whereIn('id', $sentPredictionIds)
+                ->update(['notified_at' => now()]);
+            Log::info("Marked " . count($sentPredictionIds) . " predictions as notified");
         }
 
         return $success;

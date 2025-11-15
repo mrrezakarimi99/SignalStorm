@@ -30,6 +30,7 @@ class Prediction extends Model
         'accuracy',
         'features',
         'metadata',
+        'notified_at',
     ];
 
     protected $casts = [
@@ -42,6 +43,7 @@ class Prediction extends Model
         'accuracy' => 'decimal:4',
         'prediction_time' => 'datetime',
         'target_time' => 'datetime',
+        'notified_at' => 'datetime',
         'features' => 'array',
         'metadata' => 'array',
     ];

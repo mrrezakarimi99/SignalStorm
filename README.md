@@ -692,6 +692,55 @@ docker compose exec laravel php artisan tinker --execute='
 
 ### Troubleshooting
 
+#### Duplicate Predictions in Database
+
+**Symptom**: Multiple predictions with same symbol+interval but different model versions
+
+**Cause**: Multiple model versions exist for the same symbol+interval, and old versions were running predictions
+
+**Solution**:
+```bash
+# 1. Clean up existing duplicates
+docker compose exec laravel php artisan predict:cleanup-duplicates
+
+# 2. Verify the fix - should now only use latest models
+docker compose exec laravel php artisan predict:all
+
+# 3. Check predictions (should see only one per symbol+interval)
+docker compose exec laravel php artisan tinker --execute='
+  \App\Models\Prediction::select("symbol", "interval", "model_version")
+    ->where("created_at", ">=", now()->subHour())
+    ->orderBy("symbol")
+    ->orderBy("interval")
+    ->get();
+'
+```
+
+**Prevention**: The system now automatically:
+- Uses only the latest model version per symbol+interval
+- Deletes predictions created in the last 5 minutes before creating new ones
+- Tracks sent notifications to prevent re-sending
+
+#### Too Many Telegram Messages
+
+**Symptom**: Getting 10+ Telegram messages every 15 minutes
+
+**Solution**:
+```bash
+# 1. Setup batch notifications
+docker compose exec laravel php artisan migrate
+
+# 2. Mark old predictions as sent
+docker compose exec laravel php artisan tinker --execute="\App\Models\Prediction::update(['notified_at' => now()]);"
+
+# 3. Test batch sending
+docker compose exec laravel php artisan signal:send-batch
+```
+
+Now you'll get only 2-3 clean messages every 15 minutes instead of spam!
+
+#### Other Common Issues
+
 ```bash
 # Clear caches
 docker compose exec laravel php artisan cache:clear
