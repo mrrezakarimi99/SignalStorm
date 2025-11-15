@@ -225,6 +225,7 @@ class TradingSignalService
     public function sendBatchSignals(?int $minutes = null): bool
     {
         $minutes = $minutes ?? config('trading.notifications.batch_interval', 15);
+        $maxPerMessage = config('trading.notifications.batch_max_per_message', 5);
 
         // Get recent predictions that haven't been notified yet
         $predictions = Prediction::whereIn('signal', ['BUY', 'SELL'])
@@ -240,23 +241,47 @@ class TradingSignalService
 
         Log::info("Sending batch notification for {$predictions->count()} predictions");
 
-        $message = $this->formatBatchSignalMessage($predictions, $minutes);
+        // Split predictions into chunks to avoid Telegram's 4096 character limit
+        $chunks = $predictions->chunk($maxPerMessage);
+        $success = true;
 
-        // Send batch to channel
-        return $this->telegramNotifier->sendToChannel($message, [
-            'batch_count' => $predictions->count(),
-        ]);
+        foreach ($chunks as $index => $chunk) {
+            $message = $this->formatBatchSignalMessage($chunk, $minutes, $index + 1, $chunks->count());
+
+            // Send batch to channel
+            $result = $this->telegramNotifier->sendToChannel($message, [
+                'batch_count' => $chunk->count(),
+                'batch_part' => $index + 1,
+                'total_parts' => $chunks->count(),
+            ]);
+
+            if (!$result) {
+                $success = false;
+            }
+
+            // Small delay between messages to avoid rate limiting
+            if ($chunks->count() > 1 && $index < $chunks->count() - 1) {
+                usleep(500000); // 0.5 second delay
+            }
+        }
+
+        return $success;
     }
 
     /**
      * Format batch signal message with lowercase text
      */
-    protected function formatBatchSignalMessage($predictions, int $minutes): string
+    protected function formatBatchSignalMessage($predictions, int $minutes, int $part = 1, int $totalParts = 1): string
     {
         $buyCount = $predictions->where('signal', 'BUY')->count();
         $sellCount = $predictions->where('signal', 'SELL')->count();
 
-        $message = "<b>🔔 trading signals ({$minutes}min)</b>\n\n";
+        // Header with part number if multiple parts
+        if ($totalParts > 1) {
+            $message = "<b>🔔 trading signals ({$minutes}min) [{$part}/{$totalParts}]</b>\n\n";
+        } else {
+            $message = "<b>🔔 trading signals ({$minutes}min)</b>\n\n";
+        }
 
         $message .= "<b>📊 summary:</b>\n";
         $message .= "• total: {$predictions->count()} signals\n";
@@ -273,7 +298,7 @@ class TradingSignalService
             $interval = strtolower($prediction->interval);
 
             $message .= "{$emoji} <b>{$signal}</b> {$symbol} ({$interval})\n";
-            $message .= "• price: $" . $prediction->current_price . " → $" . $prediction->predicted_price . "\n";
+            $message .= "• price: $" . number_format((float)$prediction->current_price, 2) . " → $" . number_format((float)$prediction->predicted_price, 2) . "\n";
             $message .= "• change: {$priceEmoji} " . number_format((float) $prediction->price_change_percent, 2) . "%\n";
             $message .= "• confidence: {$prediction->confidence}% ";
             $message .= $this->getConfidenceBar((float) $prediction->confidence) . "\n";
@@ -282,9 +307,6 @@ class TradingSignalService
                 $message .= "\n";
             }
         }
-
-        $message .= "\n<i>⚠️ ai-generated signals. dyor & manage risk.</i>";
-
         return $message;
     }
 

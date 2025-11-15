@@ -101,6 +101,9 @@ return [
         // Batch interval in minutes (how often to send batch notifications)
         'batch_interval' => env('BATCH_NOTIFICATION_INTERVAL', 15),
 
+        // Maximum predictions per message (to avoid Telegram 4096 char limit)
+        'batch_max_per_message' => env('BATCH_MAX_PER_MESSAGE', 5),
+
         // Send daily summary
         'daily_summary' => env('DAILY_SUMMARY_ENABLED', true),
 
