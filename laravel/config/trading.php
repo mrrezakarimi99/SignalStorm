@@ -150,11 +150,31 @@ return [
         // Enable daily summary
         'daily_summary' => env('DAILY_SUMMARY_ENABLED', true),
 
+        // Enable daily accuracy summary (analyzes confidence vs accuracy)
+        'accuracy_summary' => env('ACCURACY_SUMMARY_ENABLED', true),
+
         // Auto-train after data fetch (if enough new data)
         'train_after_fetch' => env('TRAIN_AFTER_FETCH', false),
 
         // Minimum candles required before training
         'min_candles_for_training' => env('MIN_CANDLES_FOR_TRAINING', 500),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Summary Report Settings
+    |--------------------------------------------------------------------------
+    */
+
+    'summary' => [
+        // Daily signal summary time
+        'schedule_time' => env('DAILY_SUMMARY_TIME', '08:00'),
+
+        // Daily accuracy summary time
+        'accuracy_summary_time' => env('ACCURACY_SUMMARY_TIME', '09:00'),
+
+        // Days to analyze for accuracy summary
+        'accuracy_summary_days' => env('ACCURACY_SUMMARY_DAYS', 7),
     ],
 ];
 

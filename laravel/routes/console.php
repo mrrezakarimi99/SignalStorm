@@ -141,3 +141,17 @@ if (config('trading.automation.daily_summary', true)) {
         ->dailyAt($summaryTime)
         ->runInBackground();
 }
+
+// Daily accuracy summary (analyze confidence vs accuracy to find best signals)
+if (config('trading.automation.accuracy_summary', true)) {
+    $accuracySummaryTime = config('trading.summary.accuracy_summary_time', '09:00');
+    $accuracySummaryDays = config('trading.summary.accuracy_summary_days', 7);
+
+    Schedule::command('signal:accuracy-summary', [
+        '--update' => true,
+        '--days' => $accuracySummaryDays,
+    ])
+        ->dailyAt($accuracySummaryTime)
+        ->runInBackground();
+}
+
