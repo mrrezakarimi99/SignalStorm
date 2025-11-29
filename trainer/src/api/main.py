@@ -4,15 +4,21 @@ FastAPI Application for ML Trainer Service
 Exposes REST API endpoints for model training and prediction
 """
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, Response, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import os
+import logging
 
 from ..trainers.lstm_trainer import LSTMTrainer
 from ..storage.disk_storage import DiskStorage
 from ..contracts.trainer import ITrainer
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # Pydantic models for request/response
@@ -38,6 +44,24 @@ app = FastAPI(
     description="ML model training and prediction service",
     version="1.0.0"
 )
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Custom exception handler for malformed requests
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)}
+    )
 
 # Initialize storage and trainer (Dependency Injection)
 storage_type = os.getenv('MODEL_STORAGE', 'disk')
@@ -71,6 +95,13 @@ async def health_check():
         "service": "ML Trainer",
         "version": "1.0.0"
     }
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Favicon endpoint to prevent 404 errors"""
+    # Return empty response with 204 No Content
+    return Response(status_code=204)
 
 
 @app.post("/train")
